@@ -16,6 +16,8 @@ import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -32,6 +34,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 
 @Service
@@ -53,6 +56,10 @@ public class NotificationServiceImpl implements NotificationService {
     @Autowired
     SmsService smsService;
 
+    @Autowired
+    private MessageSource messageSource;
+
+    private Locale locale = LocaleContextHolder.getLocale();
 
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationServiceImpl.class);
@@ -60,27 +67,29 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public NotificationDTO sendNotification(NotificationDTO dto) {
 
+        //validate that request_reference has not been used before
         Notification notification = notificationRepo.findByRequestRef(dto.getRequestRef());
         if(notification !=null ){
-            throw new AppBaseException("Duplicate Request");
+
+            String mssg = messageSource.getMessage("notification.duplicate.request", null, locale);
+            logger.error("error :: {}",mssg);
+            throw new AppBaseException(mssg);
         }
 
-
+        //persist notification request
         notification = modelMapper.map(dto, Notification.class);
         notification.setStatus(MessageStatus.PENDING);
         notification.setRecipient(dto.getRecipient());
 
-        logger.info("Notification is :: {}",notification);
-
         notification = notificationRepo.save(notification);
 
+        //set data transfer objects before returning to client
         dto.setId(notification.getId());
         dto.setCreatedOn(notification.getCreatedOn());
         dto.setStatus(notification.getStatus().name());
 
-
+        //run remaining part of notification on teh background
         pushAsyncProcess(dto);
-
 
         return dto;
     }
@@ -91,7 +100,8 @@ public class NotificationServiceImpl implements NotificationService {
         Notification notification = notificationRepo.findByRequestRef(requestRef);
 
         if(notification == null ){
-            throw new AppBaseException("Notification not found");
+            String mssg = messageSource.getMessage("record.not.found", null, locale);
+            throw new AppBaseException(mssg);
         }
         NotificationDTO dto = modelMapper.map(notification, NotificationDTO.class);
 
@@ -102,12 +112,16 @@ public class NotificationServiceImpl implements NotificationService {
     public NotificationDTO resendNotification(String requestRef) throws AppBaseException {
 
         Notification notification = notificationRepo.findByRequestRef(requestRef);
+
+        //validate that reference id exists
         if(notification == null ){
-            throw new AppBaseException("Invalid Reference Id");
+            String mssg = messageSource.getMessage("notification.invalid.id", null, locale);
+            throw new AppBaseException(mssg);
         }
 
         NotificationDTO dto = modelMapper.map(notification, NotificationDTO.class);
 
+        //only re-push if notification actually failed
         if(notification.getStatus().equals(MessageStatus.FAILED)){
             pushAsyncProcess(dto);
         }
@@ -120,9 +134,9 @@ public class NotificationServiceImpl implements NotificationService {
 
         Notification notification = notificationRepo.findByRequestRef(requestRef);
 
-
         if(notification==null){
-            throw new AppBaseException("Notification record not found");
+            String mssg = messageSource.getMessage("record.not.found", null, locale);
+            throw new AppBaseException(mssg);
         }else{
             notification.setStatus(MessageStatus.valueOf(status));
             notificationRepo.save(notification);
@@ -133,6 +147,7 @@ public class NotificationServiceImpl implements NotificationService {
     public Page<NotificationDTO> getNotifications(NotificationFilterDTO filterDTO) {
 
 
+        //set criteria builder for main query that gets records
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Notification> q = cb.createQuery(Notification.class);
         Root<Notification> c = q.from(Notification.class);
@@ -141,6 +156,7 @@ public class NotificationServiceImpl implements NotificationService {
         Date startDate;
         Date endDate;
 
+        //only use inputs supplied to generate query for report
         try {
 
             if (filterDTO.getDeliveryStatus() != null && filterDTO.getDeliveryStatus()!="") {
@@ -155,9 +171,11 @@ public class NotificationServiceImpl implements NotificationService {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            throw new AppBaseException("System Error Occurred");
+            String mssg = messageSource.getMessage("system.error.occurred", null, locale);
+            throw new AppBaseException(mssg);
         }
 
+        //set second criteria builder for count query that allows for pagination
         CriteriaQuery<Notification> baseQuery = null;
         CriteriaQuery<Long> qc = cb.createQuery(Long.class).orderBy();
         CriteriaQuery<Long> countQuery;
@@ -170,6 +188,7 @@ public class NotificationServiceImpl implements NotificationService {
             countQuery = qc.select(cb.count(qc.from(Notification.class)));
         }
 
+        //set default page size of 10 and page number 1(0 indexed)
         Pageable pageable;
         if(filterDTO.getSize() == 0 || filterDTO.getPage() < 0){
             pageable = PageRequest.of(0,10);
@@ -177,7 +196,7 @@ public class NotificationServiceImpl implements NotificationService {
             pageable = PageRequest.of(filterDTO.getPage(),filterDTO.getSize());
         }
 
-
+        //executing query
         TypedQuery<Notification> query = entityManager.createQuery(baseQuery);
         Long count = entityManager.createQuery(countQuery).getSingleResult();
         query.setFirstResult((int) pageable.getOffset());
@@ -187,6 +206,7 @@ public class NotificationServiceImpl implements NotificationService {
 
         List<NotificationDTO> notificationDTOS = new ArrayList<>();
 
+        //map entity to data transfer object
         notifications.forEach(notification -> {
             notificationDTOS.add(modelMapper.map(notification, NotificationDTO.class));
         });
@@ -194,6 +214,7 @@ public class NotificationServiceImpl implements NotificationService {
         return new PageImpl<>(notificationDTOS,pageable,count);
 
     }
+
 
     private void pushAsyncProcess(NotificationDTO notificationDTO){
 
@@ -227,8 +248,6 @@ public class NotificationServiceImpl implements NotificationService {
         }else{
             updateNotificationStatus(notificationDTO.getRequestRef(), MessageStatus.FAILED.name());
         }
-
-
     }
 
 }

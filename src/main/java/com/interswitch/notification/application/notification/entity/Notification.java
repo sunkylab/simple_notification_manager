@@ -4,6 +4,7 @@ package com.interswitch.notification.application.notification.entity;
 import com.interswitch.notification.core.entity.AbstractEntity;
 import lombok.Data;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
@@ -18,6 +19,9 @@ public class Notification extends AbstractEntity {
     private String sender;
     private String recipient;
     private Date deliveredOn;
+
+    //this would also make querying faster
+    @Column(unique = true)
     private String requestRef;
 
     @Enumerated(EnumType.STRING)

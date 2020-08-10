@@ -25,7 +25,7 @@ public class SwaggerConfig {
 
     private ApiInfo metaData() {
         ApiInfo apiInfo = new ApiInfo(
-                "Notification System API Documentation",
+                "Notification Management System API Documentation",
                 "Notification REST API",
                 "1.0",
                 "Terms of service",
