@@ -5,6 +5,7 @@ import com.interswitch.notification.application.email.dto.MailDTO;
 import com.interswitch.notification.application.email.service.MailService;
 import com.interswitch.notification.application.notification.dto.NotificationDTO;
 import com.interswitch.notification.application.notification.entity.MessageStatus;
+import com.interswitch.notification.application.notification.entity.MessageType;
 import com.interswitch.notification.application.notification.entity.Notification;
 import com.interswitch.notification.application.notification.repository.NotificationRepo;
 import com.interswitch.notification.application.notification.service.NotificationService;
@@ -75,6 +76,13 @@ public class NotificationServiceImpl implements NotificationService {
             logger.error("error :: {}",mssg);
             throw new AppBaseException(mssg);
         }
+
+        if( !dto.getType().equals(MessageType.SMS.name()) && !dto.getType().equals(MessageType.EMAIL.name())){
+            String mssg = messageSource.getMessage("notification.invalid.type", null, locale);
+            logger.error("error :: {}",mssg);
+            throw new AppBaseException(mssg);
+        }
+
 
         //persist notification request
         notification = modelMapper.map(dto, Notification.class);
