@@ -41,6 +41,20 @@ public class ApplicationTests {
     private String emailRecipient = "owolabi.sunday@yahoo.com";
 
     @Test
+    public void whenNotificationDTOIsNull() {
+        // given
+        NotificationDTO notificationDTO = null;
+        // when
+        try{
+            notificationService.sendNotification(notificationDTO);
+        }catch(Exception e){
+            String err = messageSource.getMessage("notification.null.dto", null, locale);
+            // then
+            Assert.assertTrue("Notification would throw exception",err.equals(e.getMessage()));
+        }
+    }
+
+    @Test
     public void whenSmsNotificationIsSent() {
         // given
         NotificationDTO notificationDTO = new NotificationDTO();
@@ -126,32 +140,45 @@ public class ApplicationTests {
     @Test
     public void whenDuplicateRefIsUsed() {
         // given
-        NotificationDTO notificationDTO = new NotificationDTO();
-        notificationDTO.setRequestRef("r-001");
+        Notification notification = new Notification();
+        notification.setRequestRef("r-090909");
+        notificationRepo.save(notification);
         // when
-        notificationDTO = notificationService.sendNotification(notificationDTO);
-        // then
-        Assert.assertTrue("Notification would have been sent ",notificationDTO.getStatus().equals(MessageStatus.DELIVERED));
+        NotificationDTO notificationDTO = new NotificationDTO();
+        notificationDTO.setRequestRef("r-090909");
+        try{
+            notificationService.sendNotification(notificationDTO);
+        }catch(Exception e){
+            String err = messageSource.getMessage("notification.duplicate.request", null, locale);
+            // then
+            Assert.assertTrue("Notification would throw exception",err.equals(e.getMessage()));
+        }
     }
 
     @Test
     public void whenInvalidRequestRefIsFetched() {
         // given
-        String requestRef = "r-0000001";
+        String requestRef = "r-000000001";
         // when
-        NotificationDTO notificationDTO = notificationService.getNotificationByRef(requestRef);
-        // then
-        Assert.assertTrue("Notification would have been sent ",notificationDTO.getStatus().equals(MessageStatus.DELIVERED));
+        try{
+            notificationService.getNotificationByRef(requestRef);
+        }catch(Exception e){
+            String err = messageSource.getMessage("record.not.found", null, locale);
+            // then
+            Assert.assertTrue("Notification would throw exception",err.equals(e.getMessage()));
+        }
     }
 
     @Test
     public void whenValidRequestRefIsFetched() {
         // given
-        String requestRef = "r-001";
+        Notification notification = new Notification();
+        notification.setRequestRef("r-0000034");
+        notificationRepo.save(notification);
         // when
-        NotificationDTO notificationDTO = notificationService.getNotificationByRef(requestRef);
+        NotificationDTO notificationDTO = notificationService.getNotificationByRef("r-0000034");
         // then
-        Assert.assertTrue("Notification would have been sent ",notificationDTO.getStatus().equals(MessageStatus.DELIVERED));
+        Assert.assertTrue("Notification record is fetched ",notificationDTO.getRequestRef().equals("r-0000034"));
     }
 
 

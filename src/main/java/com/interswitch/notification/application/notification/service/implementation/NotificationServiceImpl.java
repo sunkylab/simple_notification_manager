@@ -68,17 +68,26 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public NotificationDTO sendNotification(NotificationDTO dto) {
 
+
+        //validate null
+        if(dto == null){
+            String mssg = messageSource.getMessage("notification.null.dto", null, locale);
+            logger.error("error :: {}",mssg);
+            throw new AppBaseException(mssg);
+        }
+
+        //validate invalid notification type
+        if( !dto.getType().equals(MessageType.SMS.name()) && !dto.getType().equals(MessageType.EMAIL.name())){
+            String mssg = messageSource.getMessage("notification.invalid.type", null, locale);
+            logger.error("error :: {}",mssg);
+            throw new AppBaseException(mssg);
+        }
+
         //validate that request_reference has not been used before
         Notification notification = notificationRepo.findByRequestRef(dto.getRequestRef());
         if(notification !=null ){
 
             String mssg = messageSource.getMessage("notification.duplicate.request", null, locale);
-            logger.error("error :: {}",mssg);
-            throw new AppBaseException(mssg);
-        }
-
-        if( !dto.getType().equals(MessageType.SMS.name()) && !dto.getType().equals(MessageType.EMAIL.name())){
-            String mssg = messageSource.getMessage("notification.invalid.type", null, locale);
             logger.error("error :: {}",mssg);
             throw new AppBaseException(mssg);
         }
